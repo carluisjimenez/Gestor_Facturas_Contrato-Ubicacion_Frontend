@@ -542,15 +542,15 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
 
         actionsCell.innerHTML = `
-            <div class="rename-actions" style="display: flex; gap: 6px; justify-content: flex-end;">
-                <button class="btn-icon-sm check" title="Confirmar" style="color: var(--success);"><i class="fa-solid fa-check"></i></button>
-                <button class="btn-icon-sm cancel" title="Cancelar" style="color: var(--danger);"><i class="fa-solid fa-xmark"></i></button>
+            <div class="rename-actions" style="display: flex; gap: 8px; justify-content: flex-start;">
+                <button class="btn-icon-sm check" title="Confirmar" style="color: var(--success); padding: 6px 10px; font-size: 0.9rem;"><i class="fa-solid fa-check"></i> Aceptar</button>
+                <button class="btn-icon-sm cancel" title="Cancelar" style="color: var(--danger); padding: 6px 10px; font-size: 0.9rem;"><i class="fa-solid fa-xmark"></i> Cancelar</button>
             </div>
         `;
 
         const input = nameCell.querySelector('.rename-input');
         input.focus();
-        input.select();
+        input.setSelectionRange(0, 0); // Cursor al inicio sin seleccionar
 
         const saveRename = async () => {
             let newName = input.value.trim();
