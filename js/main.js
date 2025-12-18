@@ -72,16 +72,22 @@ function activateBackend() {
             secondsLeft--;
             timerSpan.textContent = `${secondsLeft}s`;
 
-            // Cada 5 segundos, intentar un ping para ver si ya despertó
-            if (secondsLeft % 5 === 0 && secondsLeft > 0) {
-                fetch(`${API_URL.replace('/api', '')}/`, { method: 'GET' })
-                    .then(res => {
-                        if (res.ok) {
+            // Cada 3 segundos, verificar si el backend ya está activo
+            if (secondsLeft % 3 === 0 && secondsLeft > 0) {
+                fetch(`${API_URL}/status`, { 
+                    method: 'GET',
+                    signal: AbortSignal.timeout(3000) // 3s timeout
+                })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.active) {
+                            // Backend está activo, cambiar a "Activado" inmediatamente
                             clearInterval(backendActivation.timerInterval);
                             setBackendActivatedState();
+                            console.log('Backend activado en', 60 - secondsLeft, 'segundos');
                         }
                     })
-                    .catch(() => { /* Sigue dormido */ });
+                    .catch(() => { /* Sigue despertando */ });
             }
 
             if (secondsLeft <= 0) {
