@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'https://gestorfacturascontrato-ubicacionbe.onrender.com/api';
 
 document.addEventListener('DOMContentLoaded', () => {
     // Elementos - Sección Excel
