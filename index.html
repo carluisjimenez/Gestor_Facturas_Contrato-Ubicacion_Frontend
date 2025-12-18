@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Facturas y Contratos</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+    <main class="app-container glass-panel">
+        <header class="app-header">
+            <h1>Gestor de Facturas</h1>
+            <p>Automatización de renombramiento por ubicación y contrato</p>
+        </header>
+
+        <!-- Excel Section -->
+        <section id="excel-section" class="upload-section">
+            <div class="section-header">
+                <h2><i class="fa-regular fa-file-excel"></i> Archivo Excel</h2>
+            </div>
+
+            <div id="excel-dropzone" class="dropzone">
+                <div class="dropzone-content"
+                    style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%;">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                    <h3>Arrastra tu Excel aquí</h3>
+                    <p>o haz clic para seleccionar</p>
+                </div>
+                <input type="file" id="excel-input" accept=".xlsx, .xls" hidden>
+            </div>
+
+            <div id="excel-file-info" class="file-info hidden">
+                <div class="file-card glass-card">
+                    <div class="file-icon"><i class="fa-solid fa-file-excel"></i></div>
+                    <div class="file-details">
+                        <span id="excel-filename" class="filename">nombre_archivo.xlsx</span>
+                        <span class="file-status">Listo para procesar</span>
+                    </div>
+                    <button id="remove-excel" class="icon-btn" title="Remover archivo"><i
+                            class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+        </section>
+
+        <!-- PDF Section (Initially Hidden or Disabled) -->
+        <section id="pdf-section" class="upload-section hidden-section">
+            <div class="section-divider"></div>
+            <div class="section-header">
+                <h2><i class="fa-regular fa-file-pdf"></i> Facturas (PDF o .zip)</h2>
+            </div>
+
+            <div id="pdf-dropzone" class="dropzone" style="position: relative;">
+                <div class="dropzone-content">
+                    <i class="fa-solid fa-file-invoice"></i>
+                    <h3>Arrastra tus PDFs aquí</h3>
+                    <p>o haz clic para seleccionar múltiples archivos</p>
+                </div>
+                <input type="file" id="pdf-input" accept=".pdf, .zip" multiple webkitdirectory mozdirectory hidden>
+
+                <!-- Loading Overlay moved here -->
+                <div id="loading-overlay" class="loading-overlay hidden">
+                    <div class="spinner-container">
+                        <div class="spinner"></div>
+                        <p>Procesando archivos...</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Results Section -->
+        <section id="results-section" class="results-section hidden-section">
+            <div class="section-header row-header">
+                <h2><i class="fa-solid fa-list-check"></i> Archivos Procesados</h2>
+                <div class="actions-group" style="display: flex; align-items: center; gap: 10px;">
+                    <span id="file-count" class="badge">0 archivos</span>
+                    <button id="download-all" class="btn btn-primary"
+                        style="background-color: #10b981; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; transition: all 0.2s; display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-download"></i> Descargar todos
+                    </button>
+                    <button id="delete-all" class="btn btn-danger"
+                        style="background-color: #ef4444; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; transition: all 0.2s; display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-trash-can"></i> Eliminar todos
+                    </button>
+                </div>
+            </div>
+
+            <div class="table-container glass-card">
+                <table id="files-table">
+                    <thead>
+                        <tr>
+                            <th>Nombre del Archivo</th>
+                            <th class="text-right">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="files-list">
+                        <!-- Rows will be injected here -->
+                    </tbody>
+                </table>
+                <div id="empty-state" class="empty-state">
+                    <p>No hay archivos procesados aún</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Preview Modal -->
+    <div id="preview-modal" class="modal hidden">
+        <div class="modal-content glass-panel">
+            <div class="modal-header">
+                <h3 id="preview-title">Vista Previa</h3>
+                <button id="close-modal" class="icon-btn"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <iframe id="preview-iframe" src="" frameborder="0"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/main.js"></script>
+</body>
+
+</html>
