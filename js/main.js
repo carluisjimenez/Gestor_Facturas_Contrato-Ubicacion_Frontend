@@ -8,21 +8,37 @@ const backendActivation = {
 };
 
 /**
- * Verifica si el backend está despierto con un timeout más largo
+ * Verifica si el backend está despierto
  */
 async function checkBackendStatus() {
     const btn = document.getElementById('activateBtn');
     if (!btn) return;
 
-    // Mostrar estado de verificación
+    // Verificar si el backend fue activado previamente
+    const wasActivated = localStorage.getItem('backendActivated') === 'true';
+    const lastActivationTime = localStorage.getItem('lastActivationTime');
+    
+    // Si fue activado recientemente (últimos 15 minutos), asumir que sigue activo
+    const fifteenMinutesInMs = 15 * 60 * 1000;
+    const isRecentlyActivated = lastActivationTime && (Date.now() - parseInt(lastActivationTime) < fifteenMinutesInMs);
+
+    if (wasActivated && isRecentlyActivated) {
+        // Mostrar como activado inmediatamente
+        setBackendActivatedState();
+        
+        // Verificar en segundo plano sin bloquear la UI
+        verifyBackendInBackground();
+        return;
+    }
+
+    // Si no hay registro de activación reciente, verificar el estado
     btn.textContent = 'Verificando...';
     btn.className = 'btn-activating';
     btn.disabled = true;
 
     try {
-        // Ping con timeout de 10 segundos para dar tiempo al backend
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
 
         const response = await fetch(`${API_URL.replace('/api', '')}/`, {
             method: 'GET',
@@ -32,15 +48,38 @@ async function checkBackendStatus() {
         clearTimeout(timeoutId);
 
         if (response.ok) {
-            // Backend está activo
             setBackendActivatedState();
         } else {
-            // Backend respondió pero con error
             resetBackendActivationState();
         }
     } catch (err) {
-        // Backend no está disponible
         console.log('Backend no está activo');
+        resetBackendActivationState();
+    }
+}
+
+/**
+ * Verifica el backend en segundo plano sin afectar la UI
+ */
+async function verifyBackendInBackground() {
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+        const response = await fetch(`${API_URL.replace('/api', '')}/`, {
+            method: 'GET',
+            signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+            // Si el backend no responde, resetear el estado
+            resetBackendActivationState();
+        }
+    } catch (err) {
+        // Si falla la verificación, resetear el estado
+        console.log('Backend no respondió en verificación de fondo');
         resetBackendActivationState();
     }
 }
