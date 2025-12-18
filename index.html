@@ -41,6 +41,18 @@
                     <p>Arrastra tu Excel aquí o haz clic</p>
                 </div>
                 <input type="file" id="excel-input" accept=".xlsx, .xls" hidden>
+
+                <!-- Loading Overlay -->
+                <div id="excel-loading-overlay" class="loading-overlay hidden">
+                    <div class="spinner-container">
+                        <div class="modern-loader">
+                            <div class="loader-circle"></div>
+                            <div class="loader-circle"></div>
+                            <div class="loader-circle"></div>
+                        </div>
+                        <p>Analizando archivo...</p>
+                    </div>
+                </div>
             </div>
 
             <div id="excel-file-info" class="file-info hidden">
@@ -48,8 +60,7 @@
                     <div class="file-icon excel-theme"><i class="fa-solid fa-file-excel"></i></div>
                     <div class="file-details">
                         <span id="excel-filename" class="filename">nombre_archivo.xlsx</span>
-                        <span class="file-status"><i class="fa-solid fa-check-circle"></i> Base de datos
-                            vinculada</span>
+                        <span class="file-status"><i class="fa-solid fa-check-circle"></i> Archivo Excel cargado</span>
                     </div>
                     <button id="remove-excel" class="icon-btn" title="Remover archivo"><i
                             class="fa-solid fa-trash-can"></i></button>

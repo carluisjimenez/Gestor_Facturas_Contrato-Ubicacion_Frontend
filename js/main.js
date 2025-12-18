@@ -367,7 +367,10 @@ document.addEventListener('DOMContentLoaded', () => {
     async function handleExcelUpload(file) {
         if (!file) return;
 
-        excelFilename.textContent = "Analizando...";
+        const excelLoadingOverlay = document.getElementById('excel-loading-overlay');
+        
+        // Mostrar loading
+        excelLoadingOverlay.classList.remove('hidden');
 
         const formData = new FormData();
         formData.append('excel', file);
@@ -378,6 +381,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: formData
             });
             const data = await response.json();
+
+            // Ocultar loading
+            excelLoadingOverlay.classList.add('hidden');
 
             if (response.ok) {
                 excelFilename.textContent = file.name;
@@ -395,9 +401,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }, 50);
             } else {
                 showToast(data.error || 'Error al subir Excel', 'error');
-                excelFilename.textContent = "Error de carga";
             }
         } catch (error) {
+            // Ocultar loading en caso de error
+            excelLoadingOverlay.classList.add('hidden');
             console.error('Error:', error);
             showToast('Error de conexión con el servidor', 'error');
         }
