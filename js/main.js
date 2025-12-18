@@ -1,51 +1,4 @@
-// Configuración de la API
-const API_CONFIG = {
-    // URL base de la API - se puede cambiar según el entorno
-    BASE_URL: 'https://gestorfacturascontrato-ubicacionbe.onrender.com',
-    
-    // Obtener la URL completa de la API
-    get API_URL() {
-        return `${this.BASE_URL}/api`;
-    },
-    
-    // Configuración de las peticiones fetch
-    fetchConfig: {
-        // Configuración común para todas las peticiones
-        common: {
-            credentials: 'include', // Incluir credenciales (cookies, etc.)
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            }
-        },
-        
-        // Método para crear una configuración de petición
-        createConfig: function(method = 'GET', data = null) {
-            const config = {
-                ...this.common,
-                method: method,
-                mode: 'cors' // Asegurar que se use CORS
-            };
-            
-            if (data) {
-                config.body = JSON.stringify(data);
-            }
-            
-            return config;
-        },
-        
-        // Manejo de errores de la respuesta
-        handleResponse: async function(response) {
-            if (!response.ok) {
-                const error = await response.json().catch(() => ({}));
-                throw new Error(error.message || 'Error en la petición');
-            }
-            return response.json();
-        }
-    }
-};
-
-const API_URL = API_CONFIG.API_URL; // Mantener compatibilidad con el código existente
+const API_URL = 'https://gestorfacturascontrato-ubicacionbe.onrender.com/api';
 
 // Estado de activación del backend
 const backendActivation = {
@@ -67,7 +20,7 @@ async function checkBackendStatus() {
         const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout para dar tiempo al backend
 
         const response = await fetch(`${API_URL}/status`, {
-            ...API_CONFIG.fetchConfig.createConfig('GET'),
+            method: 'GET',
             signal: controller.signal
         });
 
@@ -122,7 +75,7 @@ function activateBackend() {
             // Cada 3 segundos, verificar si el backend ya está activo
             if (secondsLeft % 3 === 0 && secondsLeft > 0) {
                 fetch(`${API_URL}/status`, { 
-                    ...API_CONFIG.fetchConfig.createConfig('GET'),
+                    method: 'GET',
                     signal: AbortSignal.timeout(3000) // 3s timeout
                 })
                     .then(res => res.json())
