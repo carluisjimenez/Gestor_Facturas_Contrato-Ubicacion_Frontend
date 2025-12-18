@@ -8,25 +8,21 @@ const backendActivation = {
 };
 
 /**
- * Verifica si el backend está despierto con un timeout corto
+ * Verifica si el backend está despierto con un timeout más largo
  */
 async function checkBackendStatus() {
     const btn = document.getElementById('activateBtn');
     if (!btn) return;
 
-    // Usar localStorage para que persista entre pestañas y al cerrar el navegador
-    const lastActivation = localStorage.getItem('lastActivationTime');
-    const isRecent = lastActivation && (Date.now() - parseInt(lastActivation) < 15 * 60 * 1000);
-
-    if (isRecent) {
-        // Estado optimista: si fue hace poco, asumimos que sigue despierto
-        setBackendActivatedState();
-    }
+    // Mostrar estado de verificación
+    btn.textContent = 'Verificando...';
+    btn.className = 'btn-activating';
+    btn.disabled = true;
 
     try {
-        // Ping rápido con timeout de 3 segundos
+        // Ping con timeout de 10 segundos para dar tiempo al backend
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
 
         const response = await fetch(`${API_URL.replace('/api', '')}/`, {
             method: 'GET',
@@ -36,19 +32,16 @@ async function checkBackendStatus() {
         clearTimeout(timeoutId);
 
         if (response.ok) {
+            // Backend está activo
             setBackendActivatedState();
         } else {
-            // Si responde pero con error, quizás el servidor se apagó antes de tiempo o hay un error.
+            // Backend respondió pero con error
             resetBackendActivationState();
         }
     } catch (err) {
-        // Solo reseteamos si no logramos hacer el ping y ha pasado tiempo o es un error real
-        console.log('Backend no respondió al ping inicial');
-        // Si el ping falla totalmente (Aborted o Network Error), 
-        // y NO estamos en el margen de "reciente", nos aseguramos de que esté desactivado.
-        if (!isRecent) {
-            resetBackendActivationState();
-        }
+        // Backend no está disponible
+        console.log('Backend no está activo');
+        resetBackendActivationState();
     }
 }
 
