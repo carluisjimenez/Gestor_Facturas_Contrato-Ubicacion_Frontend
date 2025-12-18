@@ -102,21 +102,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     deleteAllBtn.addEventListener('click', async () => {
-        if (!confirm('¿Estás seguro de que deseas eliminar todos los archivos?')) return;
         try {
             const response = await fetch(`${API_URL}/delete_all`, { method: 'DELETE' });
             if (response.ok) {
                 processedFiles = [];
                 renderResultsTable();
-                showToast('Todos los archivos eliminados');
-
-                // Resetear UI
-                pdfSection.classList.add('hidden-section');
-                pdfSection.classList.remove('active');
-                pdfSection.style.display = 'none';
-                excelFileInfo.classList.add('hidden');
-                excelDropzone.classList.remove('hidden');
-                excelDropzone.style.display = 'flex';
             }
         } catch (e) {
             console.error(e);
@@ -137,14 +127,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Funciones ---
 
-    function showToast(message) {
+    // --- Funciones ---
+
+    /**
+     * Muestra una notificación profesional
+     */
+    function showToast(message, type = 'success') {
         const toast = document.createElement('div');
-        toast.className = 'toast';
-        toast.innerHTML = `<i class="fa-solid fa-check-circle"></i> ${message}`;
+        toast.className = `toast ${type}`;
+
+        const icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
+        toast.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${message}</span>`;
+
         toastContainer.appendChild(toast);
 
+        // Remover después de que termine la animación de salida
         setTimeout(() => {
-            toast.remove();
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateY(20px)';
+            setTimeout(() => toast.remove(), 500);
         }, 3000);
     }
 
@@ -193,7 +194,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function handleExcelUpload(file) {
         if (!file) return;
 
-        excelFilename.textContent = "Subiendo...";
+        excelFilename.textContent = "Analizando...";
 
         const formData = new FormData();
         formData.append('excel', file);
@@ -209,18 +210,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 excelFilename.textContent = file.name;
                 excelDropzone.style.display = 'none';
                 excelFileInfo.classList.remove('hidden');
-                pdfSection.classList.remove('hidden-section');
+
+                // Transición suave
                 pdfSection.style.display = 'flex';
                 setTimeout(() => {
+                    pdfSection.classList.remove('hidden-section');
                     pdfSection.classList.add('active');
-                }, 100);
+                }, 50);
             } else {
-                alert('Error al subir Excel: ' + data.error);
+                showToast(data.error || 'Error al subir Excel', 'error');
                 excelFilename.textContent = "Error de carga";
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('Error de conexión con el servidor.');
+            showToast('Error de conexión con el servidor', 'error');
         }
     }
 
@@ -230,7 +233,6 @@ document.addEventListener('DOMContentLoaded', () => {
             formData.append('pdfs', file);
         });
 
-        // Mostrar indicador de carga
         loadingOverlay.classList.remove('hidden');
 
         try {
@@ -241,20 +243,19 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
 
             if (response.ok) {
-                resultsSection.classList.remove('hidden-section');
                 resultsSection.style.display = 'block';
                 setTimeout(() => {
+                    resultsSection.classList.remove('hidden-section');
                     resultsSection.classList.add('active');
-                }, 100);
+                }, 50);
                 fetchFilesList();
             } else {
-                alert('Error al procesar PDFs: ' + data.error);
+                showToast(data.error || 'Error al procesar archivos', 'error');
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('Error al procesar archivos.');
+            showToast('Error crítico al procesar archivos', 'error');
         } finally {
-            // Ocultar indicador de carga
             loadingOverlay.classList.add('hidden');
         }
     }
@@ -267,7 +268,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderResultsTable();
             }
         } catch (error) {
-            console.error("Error al obtener lista de archivos:", error);
+            console.error("Error fetching files:", error);
         }
     }
 
@@ -283,15 +284,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         processedFiles.forEach((file) => {
             const tr = document.createElement('tr');
-            // Sanitizar ID para evitar problemas con caracteres especiales
             const safeId = file.name.replace(/[^a-zA-Z0-9]/g, '-');
             tr.id = `row-${safeId}`;
 
             tr.innerHTML = `
                 <td>
-                    <div class="file-display" style="display: flex; align-items: center; gap: 10px; cursor: pointer;" onclick="showPreview('${file.name}')">
-                        <i class="fa-solid fa-file-pdf" style="color: #ef4444;"></i>
-                        <span class="filename-text" style="color: #3b82f6; text-decoration: underline;">${file.name}</span>
+                    <div class="file-display" style="display: flex; align-items: center; gap: 12px; cursor: pointer;" onclick="showPreview('${file.name}')">
+                        <i class="fa-solid fa-file-pdf" style="color: #ef4444; font-size: 1.1rem;"></i>
+                        <span class="filename-text">${file.name}</span>
                     </div>
                 </td>
                 <td class="text-right">
@@ -303,7 +303,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <i class="fa-solid fa-download"></i>
                         </button>
                         <button class="action-btn delete" title="Eliminar" onclick="removeFile('${file.name}')">
-                            <i class="fa-solid fa-trash"></i>
+                            <i class="fa-solid fa-trash-can"></i>
                         </button>
                     </div>
                 </td>
@@ -339,22 +339,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const nameWithoutExt = oldName.replace('.pdf', '');
 
         nameCell.innerHTML = `
-            <div class="rename-container">
+            <div class="rename-container" style="display: flex; align-items: center; gap: 8px; width: 100%;">
                 <i class="fa-solid fa-file-pdf" style="color: #ef4444;"></i>
-                <input type="text" class="rename-input" value="${nameWithoutExt}">
-                <span>.pdf</span>
+                <input type="text" class="rename-input" value="${nameWithoutExt}" style="flex: 1;">
+                <span style="font-weight: 600; color: var(--text-muted);">.pdf</span>
             </div>
         `;
 
         actionsCell.innerHTML = `
-            <div class="rename-actions">
-                <button class="btn-icon-sm check" title="Aceptar"><i class="fa-solid fa-check"></i></button>
-                <button class="btn-icon-sm cancel" title="Cancelar"><i class="fa-solid fa-xmark"></i></button>
+            <div class="rename-actions" style="display: flex; gap: 6px; justify-content: flex-end;">
+                <button class="btn-icon-sm check" title="Confirmar" style="color: var(--success);"><i class="fa-solid fa-check"></i></button>
+                <button class="btn-icon-sm cancel" title="Cancelar" style="color: var(--danger);"><i class="fa-solid fa-xmark"></i></button>
             </div>
         `;
 
         const input = nameCell.querySelector('.rename-input');
         input.focus();
+        input.select();
 
         const saveRename = async () => {
             let newName = input.value.trim();
@@ -375,13 +376,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (response.ok) {
                     fetchFilesList();
+                    showToast('Archivo renombrado');
                 } else {
                     const err = await response.json();
-                    alert("Error al renombrar: " + err.error);
+                    showToast(err.error || 'Error al renombrar', 'error');
                     cancelRename();
                 }
             } catch (e) {
                 console.error(e);
+                showToast('Error de red', 'error');
                 cancelRename();
             }
         };
@@ -404,15 +407,15 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window.removeFile = async (filename) => {
-        if (!confirm(`¿Estás seguro de eliminar "${filename}"?`)) return;
         try {
             const response = await fetch(`${API_URL}/delete/${encodeURIComponent(filename)}`, { method: 'DELETE' });
             if (response.ok) {
                 fetchFilesList();
-                showToast('Archivo eliminado exitosamente');
+                showToast('Archivo eliminado');
             }
         } catch (e) {
             console.error(e);
+            showToast('Error al eliminar', 'error');
         }
     };
 });

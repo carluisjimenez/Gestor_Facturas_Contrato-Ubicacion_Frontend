@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestor de Facturas y Contratos</title>
+    <title>Gestor de Facturas</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -13,11 +13,20 @@
 </head>
 
 <body>
+    <!-- Decorative Background Elements -->
+    <div class="bg-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
 
     <main class="app-container glass-panel">
         <header class="app-header">
+            <div class="logo-container">
+                <i class="fa-solid fa-file-invoice-dollar logo-icon"></i>
+            </div>
             <h1>Gestor de Facturas</h1>
-            <p>Automatización de renombramiento por ubicación y contrato</p>
+            <p>Automatización de renombramiento de archivos según Contrato y Ubicación</p>
         </header>
 
         <!-- Excel Section -->
@@ -27,47 +36,55 @@
             </div>
 
             <div id="excel-dropzone" class="dropzone">
-                <div class="dropzone-content"
-                    style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%;">
-                    <i class="fa-solid fa-cloud-arrow-up"></i>
-                    <h3>Arrastra tu Excel aquí</h3>
-                    <p>o haz clic para seleccionar</p>
+                <div class="dropzone-content">
+                    <div class="icon-wrapper">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                    </div>
+                    <h3>Sube tu base de datos</h3>
+                    <p>Arrastra tu Excel aquí o haz clic</p>
                 </div>
                 <input type="file" id="excel-input" accept=".xlsx, .xls" hidden>
             </div>
 
             <div id="excel-file-info" class="file-info hidden">
                 <div class="file-card glass-card">
-                    <div class="file-icon"><i class="fa-solid fa-file-excel"></i></div>
+                    <div class="file-icon excel-theme"><i class="fa-solid fa-file-excel"></i></div>
                     <div class="file-details">
                         <span id="excel-filename" class="filename">nombre_archivo.xlsx</span>
-                        <span class="file-status">Listo para procesar</span>
+                        <span class="file-status"><i class="fa-solid fa-check-circle"></i> Base de datos
+                            vinculada</span>
                     </div>
                     <button id="remove-excel" class="icon-btn" title="Remover archivo"><i
-                            class="fa-solid fa-xmark"></i></button>
+                            class="fa-solid fa-trash-can"></i></button>
                 </div>
             </div>
         </section>
 
-        <!-- PDF Section (Initially Hidden or Disabled) -->
+        <!-- PDF Section -->
         <section id="pdf-section" class="upload-section hidden-section">
             <div class="section-divider"></div>
             <div class="section-header">
-                <h2><i class="fa-regular fa-file-pdf"></i> Facturas (PDF o .zip)</h2>
+                <h2><i class="fa-regular fa-file-pdf"></i> Archivos a procesar</h2>
             </div>
 
-            <div id="pdf-dropzone" class="dropzone" style="position: relative;">
+            <div id="pdf-dropzone" class="dropzone">
                 <div class="dropzone-content">
-                    <i class="fa-solid fa-file-invoice"></i>
-                    <h3>Arrastra tus PDFs aquí</h3>
-                    <p>o haz clic para seleccionar múltiples archivos</p>
+                    <div class="icon-wrapper">
+                        <i class="fa-solid fa-file-invoice"></i>
+                    </div>
+                    <h3>Cargar Facturas</h3>
+                    <p>PDFs o carpetas comprimidas (.zip)</p>
                 </div>
                 <input type="file" id="pdf-input" accept=".pdf, .zip" multiple webkitdirectory mozdirectory hidden>
 
-                <!-- Loading Overlay moved here -->
+                <!-- Loading Overlay -->
                 <div id="loading-overlay" class="loading-overlay hidden">
                     <div class="spinner-container">
-                        <div class="spinner"></div>
+                        <div class="modern-loader">
+                            <div class="loader-circle"></div>
+                            <div class="loader-circle"></div>
+                            <div class="loader-circle"></div>
+                        </div>
                         <p>Procesando archivos...</p>
                     </div>
                 </div>
@@ -77,16 +94,14 @@
         <!-- Results Section -->
         <section id="results-section" class="results-section hidden-section">
             <div class="section-header row-header">
-                <h2><i class="fa-solid fa-list-check"></i> Archivos Procesados</h2>
-                <div class="actions-group" style="display: flex; align-items: center; gap: 10px;">
+                <h2><i class="fa-solid fa-list-check"></i> Archivos Listos</h2>
+                <div class="actions-group">
                     <span id="file-count" class="badge">0 archivos</span>
-                    <button id="download-all" class="btn btn-primary"
-                        style="background-color: #10b981; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; transition: all 0.2s; display: flex; align-items: center; gap: 8px;">
-                        <i class="fa-solid fa-download"></i> Descargar todos
+                    <button id="download-all" class="btn btn-success">
+                        <i class="fa-solid fa-download"></i> Descargar Todo
                     </button>
-                    <button id="delete-all" class="btn btn-danger"
-                        style="background-color: #ef4444; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; transition: all 0.2s; display: flex; align-items: center; gap: 8px;">
-                        <i class="fa-solid fa-trash-can"></i> Eliminar todos
+                    <button id="delete-all" class="btn btn-danger">
+                        <i class="fa-solid fa-trash-can"></i> Limpiar Todo
                     </button>
                 </div>
             </div>
@@ -95,7 +110,7 @@
                 <table id="files-table">
                     <thead>
                         <tr>
-                            <th>Nombre del Archivo</th>
+                            <th>Nombre del Documento</th>
                             <th class="text-right">Acciones</th>
                         </tr>
                     </thead>
@@ -104,13 +119,12 @@
                     </tbody>
                 </table>
                 <div id="empty-state" class="empty-state">
-                    <p>No hay archivos procesados aún</p>
+                    <i class="fa-solid fa-folder-open empty-icon"></i>
+                    <p>Esperando archivos para procesar</p>
                 </div>
             </div>
         </section>
     </main>
-
-
 
     <!-- Toast Container -->
     <div id="toast-container" class="toast-container"></div>
@@ -119,7 +133,7 @@
     <div id="preview-modal" class="modal hidden">
         <div class="modal-content glass-panel">
             <div class="modal-header">
-                <h3 id="preview-title">Vista Previa</h3>
+                <h3 id="preview-title">Visualización de Documento</h3>
                 <button id="close-modal" class="icon-btn"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="modal-body">
