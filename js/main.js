@@ -14,31 +14,19 @@ async function checkBackendStatus() {
     const btn = document.getElementById('activateBtn');
     if (!btn) return;
 
-    // Verificar si el backend fue activado previamente
-    const wasActivated = localStorage.getItem('backendActivated') === 'true';
-    const lastActivationTime = localStorage.getItem('lastActivationTime');
-    
-    // Si fue activado recientemente (últimos 15 minutos), asumir que sigue activo
-    const fifteenMinutesInMs = 15 * 60 * 1000;
-    const isRecentlyActivated = lastActivationTime && (Date.now() - parseInt(lastActivationTime) < fifteenMinutesInMs);
+    // Verificar si hay actividad reciente (últimos 15 minutos)
+    const lastActivation = localStorage.getItem('lastActivationTime');
+    const isRecent = lastActivation && (Date.now() - parseInt(lastActivation) < 15 * 60 * 1000);
 
-    if (wasActivated && isRecentlyActivated) {
-        // Mostrar como activado inmediatamente
+    // Si hay actividad reciente, mostrar como activado de forma optimista
+    if (isRecent) {
         setBackendActivatedState();
-        
-        // Verificar en segundo plano sin bloquear la UI
-        verifyBackendInBackground();
-        return;
     }
 
-    // Si no hay registro de activación reciente, verificar el estado
-    btn.textContent = 'Verificando...';
-    btn.className = 'btn-activating';
-    btn.disabled = true;
-
     try {
+        // Siempre verificar con el backend
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
 
         const response = await fetch(`${API_URL.replace('/api', '')}/`, {
             method: 'GET',
@@ -48,39 +36,20 @@ async function checkBackendStatus() {
         clearTimeout(timeoutId);
 
         if (response.ok) {
+            // Backend está activo, mostrar como activado
             setBackendActivatedState();
         } else {
+            // Backend respondió pero con error, está apagado
             resetBackendActivationState();
         }
     } catch (err) {
-        console.log('Backend no está activo');
-        resetBackendActivationState();
-    }
-}
-
-/**
- * Verifica el backend en segundo plano sin afectar la UI
- */
-async function verifyBackendInBackground() {
-    try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-        const response = await fetch(`${API_URL.replace('/api', '')}/`, {
-            method: 'GET',
-            signal: controller.signal
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-            // Si el backend no responde, resetear el estado
+        // Backend no responde (timeout, network error, etc.)
+        console.log('Backend no está disponible');
+        // Solo resetear si NO hay actividad reciente
+        // Si hay actividad reciente, mantener el estado optimista
+        if (!isRecent) {
             resetBackendActivationState();
         }
-    } catch (err) {
-        // Si falla la verificación, resetear el estado
-        console.log('Backend no respondió en verificación de fondo');
-        resetBackendActivationState();
     }
 }
 
@@ -101,14 +70,21 @@ function activateBackend() {
         let secondsLeft = 60;
         timerSpan.textContent = `${secondsLeft}s`;
 
+        if (backendActivation.timerInterval) clearInterval(backendActivation.timerInterval);
+
         backendActivation.timerInterval = setInterval(() => {
             secondsLeft--;
             timerSpan.textContent = `${secondsLeft}s`;
 
-            // Ping cada 5 segundos para mantener despierto
+            // Cada 5 segundos, intentar un ping para ver si ya despertó
             if (secondsLeft % 5 === 0 && secondsLeft > 0) {
                 fetch(`${API_URL.replace('/api', '')}/`, { method: 'GET' })
-                    .then(() => console.log('Ping enviado'))
+                    .then(res => {
+                        if (res.ok) {
+                            clearInterval(backendActivation.timerInterval);
+                            setBackendActivatedState();
+                        }
+                    })
                     .catch(() => { /* Sigue dormido */ });
             }
 
