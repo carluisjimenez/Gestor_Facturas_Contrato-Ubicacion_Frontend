@@ -55,7 +55,7 @@
 }
 
 body {
-    background-color: #f1f5f9;
+    background: linear-gradient(135deg, #e9d5ff 0%, #ddd6fe 50%, #e0e7ff 100%);
     color: var(--text-main);
     min-height: 100vh;
     display: flex;
@@ -699,4 +699,57 @@ tr:hover td {
 .rename-input:focus {
     border-color: var(--primary);
     box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+}
+
+/* --- Activation Button --- */
+.btn-activate {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+}
+
+.btn-activate:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+}
+
+.btn-activating {
+    background: linear-gradient(135deg, #fb923c 0%, #f97316 100%);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: not-allowed;
+    box-shadow: 0 2px 8px rgba(251, 146, 60, 0.3);
+}
+
+.btn-activated {
+    background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: not-allowed;
+    box-shadow: 0 2px 8px rgba(156, 163, 175, 0.3);
+}
+
+.activation-timer {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #f97316;
+    padding: 6px 12px;
+    background: rgba(251, 146, 60, 0.1);
+    border-radius: 6px;
+    border: 1px solid rgba(251, 146, 60, 0.3);
 }
