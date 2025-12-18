@@ -439,8 +439,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 setTimeout(() => {
                     resultsSection.classList.remove('hidden-section');
                     resultsSection.classList.add('active');
+                    
+                    // Auto-scroll to results section
+                    resultsSection.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'start' 
+                    });
                 }, 50);
-                fetchFilesList();
+                
+                // Fetch files list with a small delay to ensure backend processing is complete
+                setTimeout(() => {
+                    fetchFilesList();
+                }, 500);
             } else {
                 showToast(data.error || 'Error al procesar archivos', 'error');
             }
@@ -482,11 +492,27 @@ document.addEventListener('DOMContentLoaded', () => {
             const safeId = file.name.replace(/[^a-zA-Z0-9]/g, '-');
             tr.id = `row-${safeId}`;
 
+            // Extract location and invoice number from the file name
+            let displayName = file.name;
+            let location = '';
+            let invoiceNumber = '';
+            
+            // Try to extract location and invoice number from the file name
+            const match = file.name.match(/^(.+?)\s*-\s*(\d+)\.pdf$/i);
+            if (match) {
+                location = match[1].trim();
+                invoiceNumber = match[2].trim();
+                displayName = `${location} - ${invoiceNumber}`;
+            }
+
             tr.innerHTML = `
                 <td>
                     <div class="file-display" style="display: flex; align-items: center; gap: 12px; cursor: pointer;" onclick="showPreview('${file.name}')">
                         <i class="fa-solid fa-file-pdf" style="color: #ef4444; font-size: 1.1rem;"></i>
-                        <span class="filename-text">${file.name}</span>
+                        <div style="display: flex; flex-direction: column;">
+                            <span class="filename-text" title="${file.name}">${displayName}</span>
+                            <small style="color: #6b7280; font-size: 0.8rem;">${file.ubicacion || ''}</small>
+                        </div>
                     </div>
                 </td>
                 <td class="text-right">
@@ -508,15 +534,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     window.showPreview = (filename) => {
-        previewTitle.textContent = filename;
+        // Extract short name for display in the modal title
+        let displayName = filename;
+        const shortNameMatch = filename.match(/^([^-]+-\s*\d+\.pdf)/i);
+        if (shortNameMatch && shortNameMatch[1]) {
+            displayName = shortNameMatch[1].trim();
+        }
+        previewTitle.textContent = displayName;
+        previewTitle.setAttribute('title', filename); // Full name in tooltip
         previewIframe.src = `${API_URL}/download/${encodeURIComponent(filename)}?preview=true`;
         previewModal.classList.remove('hidden');
     };
 
     window.downloadFile = (filename) => {
         const link = document.createElement('a');
+        // Extract short name for the downloaded file
+        let downloadName = filename;
+        const shortNameMatch = filename.match(/^([^-]+-\s*\d+\.pdf)/i);
+        if (shortNameMatch && shortNameMatch[1]) {
+            downloadName = shortNameMatch[1].trim();
+        }
         link.href = `${API_URL}/download/${encodeURIComponent(filename)}`;
-        link.download = filename;
+        link.download = downloadName;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
