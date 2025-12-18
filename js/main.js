@@ -8,27 +8,18 @@ const backendActivation = {
 };
 
 /**
- * Verifica si el backend está despierto
+ * Verifica si el backend está despierto usando el endpoint de estado
  */
 async function checkBackendStatus() {
     const btn = document.getElementById('activateBtn');
     if (!btn) return;
 
-    // Verificar si hay actividad reciente (últimos 15 minutos)
-    const lastActivation = localStorage.getItem('lastActivationTime');
-    const isRecent = lastActivation && (Date.now() - parseInt(lastActivation) < 15 * 60 * 1000);
-
-    // Si hay actividad reciente, mostrar como activado de forma optimista
-    if (isRecent) {
-        setBackendActivatedState();
-    }
-
     try {
-        // Siempre verificar con el backend
+        // Verificar con el endpoint de estado del backend
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+        const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout para dar tiempo al backend
 
-        const response = await fetch(`${API_URL.replace('/api', '')}/`, {
+        const response = await fetch(`${API_URL}/status`, {
             method: 'GET',
             signal: controller.signal
         });
@@ -36,20 +27,25 @@ async function checkBackendStatus() {
         clearTimeout(timeoutId);
 
         if (response.ok) {
-            // Backend está activo, mostrar como activado
-            setBackendActivatedState();
+            const data = await response.json();
+            
+            // El backend responde y nos dice si está activo
+            if (data.active) {
+                // Backend está activo (dentro de los 15 minutos de inactividad)
+                setBackendActivatedState();
+            } else {
+                // Backend responde pero indica que está inactivo (más de 15 minutos sin actividad)
+                resetBackendActivationState();
+            }
         } else {
-            // Backend respondió pero con error, está apagado
+            // Backend respondió pero con error
+            console.log('Backend respondió con error');
             resetBackendActivationState();
         }
     } catch (err) {
-        // Backend no responde (timeout, network error, etc.)
-        console.log('Backend no está disponible');
-        // Solo resetear si NO hay actividad reciente
-        // Si hay actividad reciente, mantener el estado optimista
-        if (!isRecent) {
-            resetBackendActivationState();
-        }
+        // Backend no responde (timeout, network error, servidor apagado)
+        console.log('Backend no está disponible:', err.message);
+        resetBackendActivationState();
     }
 }
 
