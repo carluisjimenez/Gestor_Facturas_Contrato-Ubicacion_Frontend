@@ -20,10 +20,6 @@
             </div>
             <h1>Gestor de Facturas</h1>
             <p>Automatización de renombramiento de archivos según Contrato y Ubicación</p>
-            <div style="display: flex; gap: 10px; align-items: center; justify-content: center; margin-top: 15px;">
-                <span id="activationTimer" class="activation-timer" style="display: none;">60s</span>
-                <button class="btn-activate" id="activateBtn" onclick="activateBackend()">Activar</button>
-            </div>
         </header>
 
         <!-- Excel Section -->
@@ -136,6 +132,18 @@
 
     <!-- Toast Container -->
     <div id="toast-container" class="toast-container"></div>
+
+    <!-- Service Loading Overlay -->
+    <div id="service-overlay" class="service-overlay hidden">
+        <div class="service-content">
+            <div class="modern-loader">
+                <div class="loader-circle"></div>
+                <div class="loader-circle"></div>
+                <div class="loader-circle"></div>
+            </div>
+            <p>Cargando servicio...</p>
+        </div>
+    </div>
 
     <!-- Preview Modal -->
     <div id="preview-modal" class="modal hidden">

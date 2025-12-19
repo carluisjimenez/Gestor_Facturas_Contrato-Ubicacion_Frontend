@@ -1,185 +1,54 @@
 const API_URL = 'https://gestorfacturascontrato-ubicacionbe.onrender.com/api';
 
-// Estado de activación del backend
-const backendActivation = {
-    timerInterval: null,
-    inactivityTimeout: null,
-    isActivated: false
-};
+let serviceWakeInterval = null;
 
-/**
- * Verifica si el backend está despierto usando el endpoint de estado
- */
-async function checkBackendStatus() {
-    const btn = document.getElementById('activateBtn');
-    if (!btn) return;
-
+async function pingBackend(timeoutMs = 2000) {
     try {
-        // Verificar con el endpoint de estado del backend
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout para dar tiempo al backend
-
-        const response = await fetch(`${API_URL}/status`, {
+        const res = await fetch(`${API_URL}/status`, {
             method: 'GET',
-            signal: controller.signal
+            signal: AbortSignal.timeout(timeoutMs)
         });
-
-        clearTimeout(timeoutId);
-
-        if (response.ok) {
-            const data = await response.json();
-            
-            // El backend responde y nos dice si está activo
-            if (data.active) {
-                // Backend está activo (dentro de los 15 minutos de inactividad)
-                setBackendActivatedState();
-            } else {
-                // Backend responde pero indica que está inactivo (más de 15 minutos sin actividad)
-                resetBackendActivationState();
-            }
-        } else {
-            // Backend respondió pero con error
-            console.log('Backend respondió con error');
-            resetBackendActivationState();
-        }
-    } catch (err) {
-        // Backend no responde (timeout, network error, servidor apagado)
-        console.log('Backend no está disponible:', err.message);
-        resetBackendActivationState();
+        return res.ok;
+    } catch (_) {
+        return false;
     }
 }
 
-function activateBackend() {
-    const btn = document.getElementById('activateBtn');
-    const timerSpan = document.getElementById('activationTimer');
-
-    if (!btn) return;
-
-    // 1. Cambiar UI a "Activando"
-    btn.textContent = 'Activando';
-    btn.className = 'btn-activating';
-    btn.disabled = true;
-
-    // 2. Mostrar Timer y empezar cuenta regresiva
-    if (timerSpan) {
-        timerSpan.style.display = 'inline';
-        let secondsLeft = 60;
-        timerSpan.textContent = `${secondsLeft}s`;
-
-        if (backendActivation.timerInterval) clearInterval(backendActivation.timerInterval);
-
-        backendActivation.timerInterval = setInterval(() => {
-            secondsLeft--;
-            timerSpan.textContent = `${secondsLeft}s`;
-
-            // Cada 3 segundos, verificar si el backend ya está activo
-            if (secondsLeft % 3 === 0 && secondsLeft > 0) {
-                fetch(`${API_URL}/status`, { 
-                    method: 'GET',
-                    signal: AbortSignal.timeout(3000) // 3s timeout
-                })
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.active) {
-                            // Backend está activo, cambiar a "Activado" inmediatamente
-                            clearInterval(backendActivation.timerInterval);
-                            setBackendActivatedState();
-                            console.log('Backend activado en', 60 - secondsLeft, 'segundos');
-                        }
-                    })
-                    .catch(() => { /* Sigue despertando */ });
-            }
-
-            if (secondsLeft <= 0) {
-                clearInterval(backendActivation.timerInterval);
-                setBackendActivatedState();
-            }
-        }, 1000);
-    } else {
-        // Fallback si no hay span de timer
-        setTimeout(setBackendActivatedState, 60000);
-    }
-
-    // 3. Mandar el ping inicial de wake-up
-    fetch(`${API_URL.replace('/api', '')}/`, { method: 'GET' })
-        .then(() => console.log('Ping de activación enviado'))
-        .catch(err => console.log('Backend despertando...'));
+function showServiceOverlay() {
+    const overlay = document.getElementById('service-overlay');
+    if (overlay) overlay.classList.remove('hidden');
 }
 
-function setBackendActivatedState() {
-    const btn = document.getElementById('activateBtn');
-    const timerSpan = document.getElementById('activationTimer');
-
-    if (!btn) return;
-
-    // Cambiar a "Activado"
-    btn.textContent = 'Activado';
-    btn.className = 'btn-activated';
-    btn.disabled = true;
-
-    // Ocultar timer si estaba visible
-    if (timerSpan) timerSpan.style.display = 'none';
-    if (backendActivation.timerInterval) clearInterval(backendActivation.timerInterval);
-
-    backendActivation.isActivated = true;
-
-    // Guardar en localStorage para persistencia total
-    localStorage.setItem('backendActivated', 'true');
-    localStorage.setItem('lastActivationTime', Date.now().toString());
-
-    // Iniciar temporizador de inactividad
-    resetInactivityTimer();
+function hideServiceOverlay() {
+    const overlay = document.getElementById('service-overlay');
+    if (overlay) overlay.classList.add('hidden');
 }
 
-function resetBackendActivationState() {
-    const btn = document.getElementById('activateBtn');
-    if (!btn) return;
-
-    btn.textContent = 'Activar';
-    btn.className = 'btn-activate';
-    btn.disabled = false;
-
-    backendActivation.isActivated = false;
-    backendActivation.inactivityTimeout = null;
-
-    // Limpiar storage permanente
-    localStorage.removeItem('backendActivated');
-    localStorage.removeItem('lastActivationTime');
-}
-
-function resetInactivityTimer() {
-    // Actualizar el timestamp en localStorage cada vez que hay actividad
-    // Esto evita que al refrescar la página se pierda el estado si han pasado > 15 min 
-    // desde el click original pero el usuario ha estado activo
-    localStorage.setItem('lastActivationTime', Date.now().toString());
-
-    if (!backendActivation.isActivated) {
-        setBackendActivatedState();
+async function wakeBackendOnLoad() {
+    const ok = await pingBackend(2000);
+    if (ok) {
+        hideServiceOverlay();
         return;
     }
-
-    if (backendActivation.inactivityTimeout) {
-        clearTimeout(backendActivation.inactivityTimeout);
-    }
-
-    // 15 minutos de inactividad antes de volver a "Activar"
-    backendActivation.inactivityTimeout = setTimeout(() => {
-        resetBackendActivationState();
-    }, 15 * 60 * 1000);
+    showServiceOverlay();
+    if (serviceWakeInterval) clearInterval(serviceWakeInterval);
+    serviceWakeInterval = setInterval(async () => {
+        const ready = await pingBackend(2000);
+        if (ready) {
+            clearInterval(serviceWakeInterval);
+            hideServiceOverlay();
+        }
+    }, 5000);
 }
 
-// Exponer funciones globalmente
-window.activateBackend = activateBackend;
-window.checkBackendStatus = checkBackendStatus;
-window.resetInactivityTimer = resetInactivityTimer;
+window.wakeBackendOnLoad = wakeBackendOnLoad;
 
 // ========================================
 // MAIN APPLICATION
 // ========================================
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Verificar estado del backend al cargar
-    checkBackendStatus();
+    wakeBackendOnLoad();
     // Elementos - Sección Excel
     const excelDropzone = document.getElementById('excel-dropzone');
     const excelInput = document.getElementById('excel-input');

@@ -537,6 +537,35 @@ tr:hover td {
     overflow: hidden;
 }
 
+.service-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+
+.service-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 20px 24px;
+    background: rgba(255, 255, 255, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 16px;
+    box-shadow: var(--glass-shadow);
+}
+
+.service-content p {
+    font-weight: 600;
+    color: var(--text-muted);
+    margin: 0;
+}
+
 .modal-header {
     padding: 20px 30px;
     display: flex;
