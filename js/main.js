@@ -439,36 +439,44 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function extractZipPdfs(zipFile) {
-        const zip = await JSZip.loadAsync(zipFile);
-        const outputs = [];
-        const names = Object.keys(zip.files);
-        for (const name of names) {
-            const entry = zip.files[name];
-            if (!entry.dir && name.toLowerCase().endsWith('.pdf')) {
-                const blob = await entry.async('blob');
-                const filename = name.split('/').pop();
-                outputs.push(new File([blob], filename, { type: 'application/pdf' }));
-            }
-        }
-        return outputs;
-    }
-
     async function handlePdfUpload(files) {
+        // Estrategia: Si hay ZIPs, enviarlos de uno en uno.
+        // Si hay PDFs sueltos, enviarlos en lotes de 10.
+        
         loadingOverlay.classList.remove('hidden');
 
+        // Separar archivos por tipo
         const zipFiles = files.filter(f => f.name.toLowerCase().endsWith('.zip'));
-        let pdfFiles = files.filter(f => f.name.toLowerCase().endsWith('.pdf'));
+        const pdfFiles = files.filter(f => f.name.toLowerCase().endsWith('.pdf'));
 
         let errors = [];
         let successCount = 0;
 
         try {
+            // 1. Procesar ZIPs uno por uno (porque pueden ser grandes y tardar mucho)
             for (const zipFile of zipFiles) {
-                const extracted = await extractZipPdfs(zipFile);
-                pdfFiles = pdfFiles.concat(extracted);
+                const formData = new FormData();
+                formData.append('pdfs', zipFile);
+                
+                try {
+                    // Aumentar timeout implícito mediante la UI
+                    const response = await fetch(`${API_URL}/process_pdfs`, {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                         const text = await response.text();
+                         throw new Error(`ZIP ${zipFile.name}: ${text}`);
+                    }
+                    successCount++;
+                } catch (err) {
+                    console.error(err);
+                    errors.push(err.message);
+                }
             }
 
+            // 2. Procesar PDFs en lotes pequeños (5) para evitar saturar el servidor o timeouts
             const BATCH_SIZE = 5;
             for (let i = 0; i < pdfFiles.length; i += BATCH_SIZE) {
                 const batch = pdfFiles.slice(i, i + BATCH_SIZE);
