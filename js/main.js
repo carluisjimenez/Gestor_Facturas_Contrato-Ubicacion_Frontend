@@ -253,48 +253,25 @@ document.addEventListener('DOMContentLoaded', () => {
     setupDragAndDrop(pdfDropzone, async (files, e) => {
         const filesToUpload = [];
 
-        // Mostrar loading inmediatamente al soltar
-        loadingOverlay.classList.remove('hidden');
+        if (e.dataTransfer.items) {
+            const entries = Array.from(e.dataTransfer.items)
+                .map(item => item.webkitGetAsEntry())
+                .filter(entry => entry !== null);
 
-        try {
-            if (e.dataTransfer && e.dataTransfer.items) {
-                const entries = Array.from(e.dataTransfer.items)
-                    .map(item => item.webkitGetAsEntry())
-                    .filter(entry => entry !== null);
-
-                for (const entry of entries) {
-                    if (entry.isDirectory) {
-                        const results = await getAllFileEntries(entry);
-                        filesToUpload.push(...results.filter(f =>
-                            f.name.toLowerCase().endsWith('.pdf') || f.name.toLowerCase().endsWith('.zip')
-                        ));
-                    } else if (entry.isFile) {
-                         // Procesar archivo suelto directamente si es posible para mantener su File object original si no es necesario recorrer
-                         // Sin embargo, getFile de la entry es seguro
-                         const file = await new Promise(resolve => entry.file(resolve));
-                         if (file.name.toLowerCase().endsWith('.pdf') || file.name.toLowerCase().endsWith('.zip')) {
-                             filesToUpload.push(file);
-                         }
-                    }
-                }
-            } else {
-                filesToUpload.push(...Array.from(files).filter(f =>
+            for (const entry of entries) {
+                const results = await getAllFileEntries(entry);
+                filesToUpload.push(...results.filter(f =>
                     f.name.toLowerCase().endsWith('.pdf') || f.name.toLowerCase().endsWith('.zip')
                 ));
             }
+        } else {
+            filesToUpload.push(...Array.from(files).filter(f =>
+                f.name.toLowerCase().endsWith('.pdf') || f.name.toLowerCase().endsWith('.zip')
+            ));
+        }
 
-            if (filesToUpload.length > 0) {
-                // Procesar por lotes si son demasiados archivos para evitar timeout del navegador o servidor
-                // Aunque para ZIPs grandes es mejor mandar uno solo.
-                // Si hay un ZIP muy grande, mejor mandarlo solo o en su propio lote.
-                await handlePdfUpload(filesToUpload);
-            } else {
-                loadingOverlay.classList.add('hidden');
-            }
-        } catch (err) {
-            console.error("Error preparando archivos:", err);
-            showToast("Error al leer los archivos arrastrados", "error");
-            loadingOverlay.classList.add('hidden');
+        if (filesToUpload.length > 0) {
+            handlePdfUpload(filesToUpload);
         }
     });
 
@@ -440,98 +417,36 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function handlePdfUpload(files) {
-        // Estrategia: Si hay ZIPs, enviarlos de uno en uno.
-        // Si hay PDFs sueltos, enviarlos en lotes de 10.
-        
+        const formData = new FormData();
+        files.forEach(file => {
+            formData.append('pdfs', file);
+        });
+
         loadingOverlay.classList.remove('hidden');
 
-        // Separar archivos por tipo
-        const zipFiles = files.filter(f => f.name.toLowerCase().endsWith('.zip'));
-        const pdfFiles = files.filter(f => f.name.toLowerCase().endsWith('.pdf'));
-
-        let errors = [];
-        let successCount = 0;
-
         try {
-            // 1. Procesar ZIPs uno por uno (porque pueden ser grandes y tardar mucho)
-            for (const zipFile of zipFiles) {
-                const formData = new FormData();
-                formData.append('pdfs', zipFile);
-                
-                try {
-                    // Aumentar timeout implícito mediante la UI
-                    const response = await fetch(`${API_URL}/process_pdfs`, {
-                        method: 'POST',
-                        body: formData
-                    });
+            const response = await fetch(`${API_URL}/process_pdfs`, {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
 
-                    if (!response.ok) {
-                         const text = await response.text();
-                         throw new Error(`ZIP ${zipFile.name}: ${text}`);
-                    }
-                    successCount++;
-                } catch (err) {
-                    console.error(err);
-                    errors.push(err.message);
-                }
+            if (response.ok) {
+                // Reset inactivity timer
+                if (typeof resetInactivityTimer === 'function') resetInactivityTimer();
+
+                resultsSection.style.display = 'block';
+                setTimeout(() => {
+                    resultsSection.classList.remove('hidden-section');
+                    resultsSection.classList.add('active');
+                }, 50);
+                fetchFilesList();
+            } else {
+                showToast(data.error || 'Error al procesar archivos', 'error');
             }
-
-            // 2. Procesar PDFs en lotes pequeños (5) para evitar saturar el servidor o timeouts
-            const BATCH_SIZE = 5;
-            for (let i = 0; i < pdfFiles.length; i += BATCH_SIZE) {
-                const batch = pdfFiles.slice(i, i + BATCH_SIZE);
-                const formData = new FormData();
-                batch.forEach(file => formData.append('pdfs', file));
-
-                try {
-                    const response = await fetch(`${API_URL}/process_pdfs`, {
-                        method: 'POST',
-                        body: formData
-                    });
-
-                    if (!response.ok) {
-                        const text = await response.text();
-                         throw new Error(`Lote ${i/BATCH_SIZE + 1}: ${text}`);
-                    }
-                    successCount++;
-                } catch (err) {
-                     console.error(err);
-                     errors.push(err.message);
-                }
-                
-                // Pequeña pausa entre lotes para dar respiro al servidor
-                if (i + BATCH_SIZE < pdfFiles.length) {
-                    await new Promise(r => setTimeout(r, 1000));
-                }
-            }
-
-            // Resultado final
-            if (successCount > 0) {
-                 // Reset inactivity timer
-                 if (typeof resetInactivityTimer === 'function') resetInactivityTimer();
-
-                 resultsSection.style.display = 'block';
-                 setTimeout(() => {
-                     resultsSection.classList.remove('hidden-section');
-                     resultsSection.classList.add('active');
-                     resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                 }, 50);
-                 
-                 setTimeout(() => fetchFilesList(), 500);
-
-                 if (errors.length > 0) {
-                     showToast(`Procesado parcialmente. Errores: ${errors.length}`, 'warning');
-                 } else {
-                     showToast('Todos los archivos procesados correctamente', 'success');
-                 }
-            } else if (errors.length > 0) {
-                // Ninguno funcionó
-                 showToast(`Fallo total. ${errors[0]}`, 'error');
-            }
-
         } catch (error) {
-            console.error('Error general:', error);
-            showToast(`Error inesperado: ${error.message}`, 'error');
+            console.error('Error:', error);
+            showToast('Error crítico al procesar archivos', 'error');
         } finally {
             loadingOverlay.classList.add('hidden');
         }
@@ -567,27 +482,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const safeId = file.name.replace(/[^a-zA-Z0-9]/g, '-');
             tr.id = `row-${safeId}`;
 
-            // Extract location and invoice number from the file name
-            let displayName = file.name;
-            let location = '';
-            let invoiceNumber = '';
-            
-            // Try to extract location and invoice number from the file name
-            const match = file.name.match(/^(.+?)\s*-\s*(\d+)\.pdf$/i);
-            if (match) {
-                location = match[1].trim();
-                invoiceNumber = match[2].trim();
-                displayName = `${location} - ${invoiceNumber}`;
-            }
-
             tr.innerHTML = `
                 <td>
                     <div class="file-display" style="display: flex; align-items: center; gap: 12px; cursor: pointer;" onclick="showPreview('${file.name}')">
                         <i class="fa-solid fa-file-pdf" style="color: #ef4444; font-size: 1.1rem;"></i>
-                        <div style="display: flex; flex-direction: column;">
-                            <span class="filename-text" title="${file.name}">${displayName}</span>
-                            <small style="color: #6b7280; font-size: 0.8rem;">${file.ubicacion || ''}</small>
-                        </div>
+                        <span class="filename-text">${file.name}</span>
                     </div>
                 </td>
                 <td class="text-right">
@@ -609,28 +508,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     window.showPreview = (filename) => {
-        // Extract short name for display in the modal title
-        let displayName = filename;
-        const shortNameMatch = filename.match(/^([^-]+-\s*\d+\.pdf)/i);
-        if (shortNameMatch && shortNameMatch[1]) {
-            displayName = shortNameMatch[1].trim();
-        }
-        previewTitle.textContent = displayName;
-        previewTitle.setAttribute('title', filename); // Full name in tooltip
+        previewTitle.textContent = filename;
         previewIframe.src = `${API_URL}/download/${encodeURIComponent(filename)}?preview=true`;
         previewModal.classList.remove('hidden');
     };
 
     window.downloadFile = (filename) => {
         const link = document.createElement('a');
-        // Extract short name for the downloaded file
-        let downloadName = filename;
-        const shortNameMatch = filename.match(/^([^-]+-\s*\d+\.pdf)/i);
-        if (shortNameMatch && shortNameMatch[1]) {
-            downloadName = shortNameMatch[1].trim();
-        }
         link.href = `${API_URL}/download/${encodeURIComponent(filename)}`;
-        link.download = downloadName;
+        link.download = filename;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
