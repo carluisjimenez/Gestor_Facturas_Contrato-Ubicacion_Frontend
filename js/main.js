@@ -253,25 +253,48 @@ document.addEventListener('DOMContentLoaded', () => {
     setupDragAndDrop(pdfDropzone, async (files, e) => {
         const filesToUpload = [];
 
-        if (e.dataTransfer.items) {
-            const entries = Array.from(e.dataTransfer.items)
-                .map(item => item.webkitGetAsEntry())
-                .filter(entry => entry !== null);
+        // Mostrar loading inmediatamente al soltar
+        loadingOverlay.classList.remove('hidden');
 
-            for (const entry of entries) {
-                const results = await getAllFileEntries(entry);
-                filesToUpload.push(...results.filter(f =>
+        try {
+            if (e.dataTransfer && e.dataTransfer.items) {
+                const entries = Array.from(e.dataTransfer.items)
+                    .map(item => item.webkitGetAsEntry())
+                    .filter(entry => entry !== null);
+
+                for (const entry of entries) {
+                    if (entry.isDirectory) {
+                        const results = await getAllFileEntries(entry);
+                        filesToUpload.push(...results.filter(f =>
+                            f.name.toLowerCase().endsWith('.pdf') || f.name.toLowerCase().endsWith('.zip')
+                        ));
+                    } else if (entry.isFile) {
+                         // Procesar archivo suelto directamente si es posible para mantener su File object original si no es necesario recorrer
+                         // Sin embargo, getFile de la entry es seguro
+                         const file = await new Promise(resolve => entry.file(resolve));
+                         if (file.name.toLowerCase().endsWith('.pdf') || file.name.toLowerCase().endsWith('.zip')) {
+                             filesToUpload.push(file);
+                         }
+                    }
+                }
+            } else {
+                filesToUpload.push(...Array.from(files).filter(f =>
                     f.name.toLowerCase().endsWith('.pdf') || f.name.toLowerCase().endsWith('.zip')
                 ));
             }
-        } else {
-            filesToUpload.push(...Array.from(files).filter(f =>
-                f.name.toLowerCase().endsWith('.pdf') || f.name.toLowerCase().endsWith('.zip')
-            ));
-        }
 
-        if (filesToUpload.length > 0) {
-            handlePdfUpload(filesToUpload);
+            if (filesToUpload.length > 0) {
+                // Procesar por lotes si son demasiados archivos para evitar timeout del navegador o servidor
+                // Aunque para ZIPs grandes es mejor mandar uno solo.
+                // Si hay un ZIP muy grande, mejor mandarlo solo o en su propio lote.
+                await handlePdfUpload(filesToUpload);
+            } else {
+                loadingOverlay.classList.add('hidden');
+            }
+        } catch (err) {
+            console.error("Error preparando archivos:", err);
+            showToast("Error al leer los archivos arrastrados", "error");
+            loadingOverlay.classList.add('hidden');
         }
     });
 
@@ -416,47 +439,91 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function handlePdfUpload(files) {
-        const formData = new FormData();
-        files.forEach(file => {
-            formData.append('pdfs', file);
-        });
+    async function extractZipPdfs(zipFile) {
+        const zip = await JSZip.loadAsync(zipFile);
+        const outputs = [];
+        const names = Object.keys(zip.files);
+        for (const name of names) {
+            const entry = zip.files[name];
+            if (!entry.dir && name.toLowerCase().endsWith('.pdf')) {
+                const blob = await entry.async('blob');
+                const filename = name.split('/').pop();
+                outputs.push(new File([blob], filename, { type: 'application/pdf' }));
+            }
+        }
+        return outputs;
+    }
 
+    async function handlePdfUpload(files) {
         loadingOverlay.classList.remove('hidden');
 
+        const zipFiles = files.filter(f => f.name.toLowerCase().endsWith('.zip'));
+        let pdfFiles = files.filter(f => f.name.toLowerCase().endsWith('.pdf'));
+
+        let errors = [];
+        let successCount = 0;
+
         try {
-            const response = await fetch(`${API_URL}/process_pdfs`, {
-                method: 'POST',
-                body: formData
-            });
-            const data = await response.json();
-
-            if (response.ok) {
-                // Reset inactivity timer
-                if (typeof resetInactivityTimer === 'function') resetInactivityTimer();
-
-                resultsSection.style.display = 'block';
-                setTimeout(() => {
-                    resultsSection.classList.remove('hidden-section');
-                    resultsSection.classList.add('active');
-                    
-                    // Auto-scroll to results section
-                    resultsSection.scrollIntoView({ 
-                        behavior: 'smooth', 
-                        block: 'start' 
-                    });
-                }, 50);
-                
-                // Fetch files list with a small delay to ensure backend processing is complete
-                setTimeout(() => {
-                    fetchFilesList();
-                }, 500);
-            } else {
-                showToast(data.error || 'Error al procesar archivos', 'error');
+            for (const zipFile of zipFiles) {
+                const extracted = await extractZipPdfs(zipFile);
+                pdfFiles = pdfFiles.concat(extracted);
             }
+
+            const BATCH_SIZE = 5;
+            for (let i = 0; i < pdfFiles.length; i += BATCH_SIZE) {
+                const batch = pdfFiles.slice(i, i + BATCH_SIZE);
+                const formData = new FormData();
+                batch.forEach(file => formData.append('pdfs', file));
+
+                try {
+                    const response = await fetch(`${API_URL}/process_pdfs`, {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        const text = await response.text();
+                         throw new Error(`Lote ${i/BATCH_SIZE + 1}: ${text}`);
+                    }
+                    successCount++;
+                } catch (err) {
+                     console.error(err);
+                     errors.push(err.message);
+                }
+                
+                // Pequeña pausa entre lotes para dar respiro al servidor
+                if (i + BATCH_SIZE < pdfFiles.length) {
+                    await new Promise(r => setTimeout(r, 1000));
+                }
+            }
+
+            // Resultado final
+            if (successCount > 0) {
+                 // Reset inactivity timer
+                 if (typeof resetInactivityTimer === 'function') resetInactivityTimer();
+
+                 resultsSection.style.display = 'block';
+                 setTimeout(() => {
+                     resultsSection.classList.remove('hidden-section');
+                     resultsSection.classList.add('active');
+                     resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                 }, 50);
+                 
+                 setTimeout(() => fetchFilesList(), 500);
+
+                 if (errors.length > 0) {
+                     showToast(`Procesado parcialmente. Errores: ${errors.length}`, 'warning');
+                 } else {
+                     showToast('Todos los archivos procesados correctamente', 'success');
+                 }
+            } else if (errors.length > 0) {
+                // Ninguno funcionó
+                 showToast(`Fallo total. ${errors[0]}`, 'error');
+            }
+
         } catch (error) {
-            console.error('Error:', error);
-            showToast('Error crítico al procesar archivos', 'error');
+            console.error('Error general:', error);
+            showToast(`Error inesperado: ${error.message}`, 'error');
         } finally {
             loadingOverlay.classList.add('hidden');
         }
