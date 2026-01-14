@@ -175,8 +175,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Funciones ---
 
-    // --- Funciones ---
-
     /**
      * Muestra una notificación profesional
      */
@@ -242,8 +240,16 @@ document.addEventListener('DOMContentLoaded', () => {
     async function handleExcelUpload(file) {
         if (!file) return;
 
+        // Validación del nombre del archivo: Reporte Coopeguanacaste [Mes] [Año]
+        // Se permite cualquier cosa después de "Reporte Coopeguanacaste "
+        const filenameRegex = /^Reporte Coopeguanacaste .+\.(xlsx|xls)$/i;
+        if (!filenameRegex.test(file.name)) {
+            showToast('El archivo debe llamarse "Reporte Coopeguanacaste [Mes] [Año]"', 'error');
+            return;
+        }
+
         const excelLoadingOverlay = document.getElementById('excel-loading-overlay');
-        
+
         // Mostrar loading
         excelLoadingOverlay.classList.remove('hidden');
 
